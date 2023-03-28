@@ -1,0 +1,120 @@
+import os
+import time
+import torch
+from utils import *
+from data_loader import DataLoader
+from models.resnet import ResNet18
+from models.mobilenetv2 import MobileNetV2
+
+torch.manual_seed(0)
+
+device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+print(f'Using device: {device}, {torch.cuda.get_device_name(device)}')
+print(torch.cuda.get_device_properties(device), '\n')
+
+model = ResNet18()
+'''
+# Freeze model parameters
+# for name, param in model.named_parameters():
+#     if "bn" not in name:
+#         param.requires_grad = False
+
+# unfreeze_layers = [model.layer3, model.layer4]
+# for layer in unfreeze_layers:
+#     for param in layer.parameters():
+#         param.requires_grad = True
+
+# change the final layer of ResNet50 Model for transfer learning
+# fc_inputs = model.fc.in_features
+# model.fc = nn.Sequential(
+#     nn.Linear(fc_inputs, 10),
+# )
+'''
+model = model.to(device)
+
+num_epochs = 100
+lr = 0.01
+batch_size = 128
+optimizer = torch.optim.SGD(model.parameters(), lr=lr, momentum=0.9, weight_decay=5e-4)
+scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=num_epochs)
+
+train_loader, val_loader, test_loader = DataLoader(batch_size=batch_size, train_val_split=0.8)
+train_total_loss, train_total_acc, val_total_loss, val_total_acc = [], [], [], []
+
+best_acc = 0.0
+print('----- start training -----')
+start = time.process_time()
+for epoch in range(num_epochs):
+    train_loss = 0
+    train_total, train_correct = 0, 0
+    model.train()
+    for inputs, targets in train_loader:
+        optimizer.zero_grad()
+        inputs, targets = inputs.to(device), targets.to(device)
+        outputs = model(inputs)
+
+        _, predicted = torch.max(outputs.data, 1)
+        train_total += targets.size(0)
+        train_correct += (predicted == targets).sum().item()
+
+        loss = loss_fn(outputs, targets)
+        loss.backward()
+        optimizer.step()
+
+        train_loss += loss.item()
+    train_total_loss.append(train_loss / len(train_loader))
+    train_total_acc.append(100 * train_correct / train_total)
+
+    val_loss = 0
+    val_total, val_correct = 0, 0
+    model.eval()
+    for inputs, targets in val_loader:
+        inputs, targets = inputs.to(device), targets.to(device)
+        outputs = model(inputs)
+
+        _, predicted = torch.max(outputs.data, 1)
+        val_total += targets.size(0)
+        val_correct += (predicted == targets).sum().item()
+
+        val_loss += loss_fn(outputs, targets).item()
+    val_total_loss.append(val_loss / len(val_loader))
+    val_total_acc.append(100 * val_correct / val_total)
+
+    scheduler.step()
+
+    print('Epoch: {}/{}'.format(epoch+1, num_epochs))
+    print('[Train] loss: {:.5f}, acc: {:.2f}%'.format(train_total_loss[-1], train_total_acc[-1]))
+    print('[Val]   loss: {:.5f}, acc: {:.2f}%'.format(val_total_loss[-1], val_total_acc[-1]))
+
+    # save checkpoint
+    if val_total_acc[-1] > best_acc:
+        state = {
+            'model': model.state_dict(),
+            'acc': val_total_acc[-1],
+            'epoch': epoch,
+        }
+        if not os.path.isdir('checkpoint'):
+            os.mkdir('checkpoint')
+        torch.save(state, './checkpoint/teacher_cpkt')
+        best_acc = val_total_acc[-1]
+        print('- New checkpoint -')
+print(f'Traing time: {time.process_time() - start} s')
+
+
+print('Loading best model...')
+checkpoint = torch.load('./checkpoint/teacher_cpkt')
+model.load_state_dict(checkpoint['model'])
+
+# test on testing data
+with torch.no_grad():
+    total, correct = 0, 0
+    for data, labels in test_loader:
+        data, labels = data.to(device), labels.to(device)
+        outputs = model(data)
+
+        _, predicted = torch.max(outputs.data, 1)
+        total += labels.size(0)
+        correct += (predicted == labels).sum().item()
+    print(f'\n[Test] Accuracy: {100 * correct / total}%')
+
+show_train_result(num_epochs, train_total_loss, train_total_acc, val_total_loss, val_total_acc, 'ResNet18')
