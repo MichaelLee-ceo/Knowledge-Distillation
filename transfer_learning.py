@@ -98,10 +98,9 @@ for epoch in range(num_epochs):
         torch.save(state, './checkpoint/teacher_cpkt')
         best_acc = val_total_acc[-1]
         print('- New checkpoint -')
-print(f'Traing time: {time.process_time() - start} s')
+print(f'----- Traing time: {time.process_time() - start} s -----')
 
-
-print('Loading best model...')
+print('\nLoading best model...')
 checkpoint = torch.load('./checkpoint/teacher_cpkt')
 model.load_state_dict(checkpoint['model'])
 
@@ -115,6 +114,6 @@ with torch.no_grad():
         _, predicted = torch.max(outputs.data, 1)
         total += labels.size(0)
         correct += (predicted == labels).sum().item()
-    print(f'\n[Test] Accuracy: {100 * correct / total}%')
+    print(f'[Test] Accuracy: {100 * correct / total}%')
 
 show_train_result(num_epochs, train_total_loss, train_total_acc, val_total_loss, val_total_acc, 'ResNet18')
