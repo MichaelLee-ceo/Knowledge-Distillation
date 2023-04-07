@@ -1,3 +1,4 @@
+import os
 import time
 import torch
 from data_loader import DataLoader
@@ -15,10 +16,13 @@ train_loader, val_loader, test_loader = DataLoader(batch_size=128, train_val_spl
 model = SimpleNet().to(device)
 # print(model)
 
-num_epochs = 50
+num_epochs = 100
 lr = 0.01
-optimizer = torch.optim.SGD(model.parameters(), lr=lr, momentum=0.9)
+optimizer = torch.optim.SGD(model.parameters(), lr=lr, momentum=0.9, weight_decay=5e-4)
+# optimizer = torch.optim.Adam(model.parameters(), lr=lr, weight_decay=5e-4)
+scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=num_epochs)
 
+best_acc = 0.0
 print('----- start training -----')
 start = time.process_time()
 train_total_loss, train_total_acc, val_total_loss, val_total_acc = [], [], [], []
@@ -58,11 +62,31 @@ for epoch in range(num_epochs):
 
         val_total_loss.append(val_loss / len(val_loader))
         val_total_acc.append(100 * val_correct / val_total)
+
+    scheduler.step()
     
     print('Epoch: {}/{}'.format(epoch+1, num_epochs))
     print('[Train] loss: {:.5f}, acc: {:.2f}%'.format(train_total_loss[-1], train_total_acc[-1]))
     print('[Val]   loss: {:.5f}, acc: {:.2f}%'.format(val_total_loss[-1], val_total_acc[-1]))
+
+     # save checkpoint
+    if val_total_acc[-1] > best_acc:
+        state = {
+            'model': model.state_dict(),
+            'acc': val_total_acc[-1],
+            'epoch': epoch,
+        }
+        if not os.path.isdir('checkpoint'):
+            os.mkdir('checkpoint')
+        torch.save(state, './checkpoint/student_cpkt')
+        best_acc = val_total_acc[-1]
+        print('- New checkpoint -')
+
 print(f'Traing time: {time.process_time() - start} s')
+
+print('\nLoading best model...')
+checkpoint = torch.load('./checkpoint/student_cpkt')
+model.load_state_dict(checkpoint['model'])
 
 with torch.no_grad():
     total, correct = 0, 0

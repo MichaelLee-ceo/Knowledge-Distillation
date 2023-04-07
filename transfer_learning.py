@@ -95,13 +95,13 @@ for epoch in range(num_epochs):
         }
         if not os.path.isdir('checkpoint'):
             os.mkdir('checkpoint')
-        torch.save(state, './checkpoint/teacher_cpkt')
+        torch.save(state, './checkpoint/teacher18_cifar10_cpkt')
         best_acc = val_total_acc[-1]
         print('- New checkpoint -')
 print(f'----- Traing time: {time.process_time() - start} s -----')
 
 print('\nLoading best model...')
-checkpoint = torch.load('./checkpoint/teacher_cpkt')
+checkpoint = torch.load('./checkpoint/teacher18_cifar10_cpkt')
 model.load_state_dict(checkpoint['model'])
 
 # test on testing data
@@ -116,4 +116,4 @@ with torch.no_grad():
         correct += (predicted == labels).sum().item()
     print(f'[Test] Accuracy: {100 * correct / total}%')
 
-show_train_result(num_epochs, train_total_loss, train_total_acc, val_total_loss, val_total_acc, 'ResNet18')
+show_train_result(num_epochs, train_total_loss, train_total_acc, val_total_loss, val_total_acc, 'ResNet18_CIFAR10')
