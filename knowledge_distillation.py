@@ -1,6 +1,8 @@
 import os
 import time
 import torch
+from torch.utils.tensorboard import SummaryWriter
+import argparse
 from utils import *
 from data_loader import DataLoader
 from models.simplenet import SimpleNet
@@ -8,12 +10,19 @@ from models.resnet import ResNet18
 
 torch.manual_seed(0)
 
+parser = argparse.ArgumentParser(description='Implementation of knowledge distillation')
+parser.add_argument('--temperature', default=4, type=int)
+parser.add_argument('--rate', default=0.9, type=float)
+args = parser.parse_args()
+
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 print(f'Using device: {device}, {torch.cuda.get_device_name(device)}')
 print(torch.cuda.get_device_properties(device), '\n')
 
+writer = SummaryWriter('./runs/CIFAR10/T{}_R{}'.format(args.temperature, args.rate))
+
 teacher = ResNet18()
-teacher.load_state_dict(torch.load('./checkpoint/teacher_cpkt')['model'])
+teacher.load_state_dict(torch.load('./checkpoint/teacher18_cifar10_cpkt')['model'])
 teacher = teacher.to(device)
 
 student = SimpleNet().to(device)
@@ -21,14 +30,15 @@ student = SimpleNet().to(device)
 num_epochs = 100
 lr = 0.01
 batch_size = 128
-# optimizer = torch.optim.Adam(resnet50.parameters(), lr=lr)
+# optimizer = torch.optim.Adam(student.parameters(), lr=lr, weight_decay=5e-4)
 optimizer = torch.optim.SGD(student.parameters(), lr=lr, momentum=0.9, weight_decay=5e-4)
-# scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=num_epochs)
+scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=num_epochs)
 
 train_loader, val_loader, test_loader = DataLoader(batch_size=batch_size, train_val_split=0.8)
 train_total_loss, train_total_acc, val_total_loss, val_total_acc = [], [], [], []
 
-print('----- Start Training -----')
+best_acc = 0.0
+print('----- Start Training ----- T: {}, R: {}'.format(args.temperature, args.rate))
 start = time.process_time()
 for epoch in range(num_epochs):
     student.train()
@@ -46,7 +56,7 @@ for epoch in range(num_epochs):
         train_total += label.size(0)
         train_correct += (predicted == label).sum().item()
         
-        loss = loss_fn_kd(output, label, soft_label)
+        loss = loss_fn_kd(output, label, soft_label, args.temperature, args.rate)
         loss.backward()
         optimizer.step()
 
@@ -70,16 +80,38 @@ for epoch in range(num_epochs):
         val_total_loss.append(val_loss / len(val_loader))
         val_total_acc.append(100 * val_correct / val_total)
 
-    # scheduler.step()
+    scheduler.step()
 
     print('Epoch: {}/{}'.format(epoch+1, num_epochs))
     print('[Train] loss: {:.5f}, acc: {:.2f}%'.format(train_total_loss[-1], train_total_acc[-1]))
     print('[Val]   loss: {:.5f}, acc: {:.2f}%'.format(val_total_loss[-1], val_total_acc[-1]))
 
-print(f'Traing time: {time.process_time() - start} s')
+    writer.add_scalar('Loss/train', train_total_loss[-1], epoch)
+    writer.add_scalar('Accuracy/train', train_total_acc[-1], epoch)
+    writer.add_scalar('Loss/val', val_total_loss[-1], epoch)
+    writer.add_scalar('Accuracy/val', val_total_acc[-1], epoch)
+
+    # save checkpoint
+    if val_total_acc[-1] > best_acc:
+        state = {
+            'model': student.state_dict(),
+            'acc': val_total_acc[-1],
+            'epoch': epoch,
+        }
+        if not os.path.isdir('checkpoint'):
+            os.mkdir('checkpoint')
+        torch.save(state, './checkpoint/student_kd_cpkt')
+        best_acc = val_total_acc[-1]
+        print('- New checkpoint -')
+
+print(f'----- Traing time: {time.process_time() - start} s -----')
+
+print('\nLoading best model...')
+checkpoint = torch.load('./checkpoint/student_kd_cpkt')
+student.load_state_dict(checkpoint['model'])
 
 with torch.no_grad():
-    total, correct = 0
+    total, correct = 0, 0
     for data, labels in test_loader:
         data, labels = data.to(device), labels.to(device)
         outputs = student(data)
@@ -89,4 +121,4 @@ with torch.no_grad():
         correct += (predicted == labels).sum().item()
     print(f'\n[Test] Accuracy: {100 * correct / total}%')
 
-show_train_result(num_epochs, train_total_loss, train_total_acc, val_total_loss, val_total_acc)
+show_train_result(num_epochs, train_total_loss, train_total_acc, val_total_loss, val_total_acc, 'student_kd')

@@ -3,3 +3,6 @@ __pycache__/
 
 # ignore dataset
 data/
+
+# ignore model weights
+checkpoint/
