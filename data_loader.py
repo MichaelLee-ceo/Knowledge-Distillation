@@ -1,9 +1,10 @@
 import torch
 import torchvision
+from mixup_dataset import Mixup_Dataset
 
 torch.manual_seed(0)
 
-def DataLoader(batch_size=128, train_val_split=0.8):
+def DataLoader(batch_size=128, train_val_split=0.8, mixup=True):
     transform_train = torchvision.transforms.Compose([
         torchvision.transforms.RandomCrop(32, padding=4),
         torchvision.transforms.RandomHorizontalFlip(),
@@ -18,12 +19,30 @@ def DataLoader(batch_size=128, train_val_split=0.8):
         torchvision.transforms.Normalize((0.485, 0.456, 0.406), (0.229, 0.224, 0.225)),
     ])
 
+    transform_aug = torchvision.transforms.Compose([
+        torchvision.transforms.ToTensor(),
+        torchvision.transforms.Normalize((0.485, 0.456, 0.406), (0.229, 0.224, 0.225)),
+    ])
+
     dataset = torchvision.datasets.CIFAR10(root='./data', download=False, train=True, transform=transform_train)
     testset = torchvision.datasets.CIFAR10(root='./data', download=False, train=False, transform=transform_test)
 
     train_size = int(len(dataset) * train_val_split)
     val_size= len(dataset) - train_size
     trainset, valset = torch.utils.data.random_split(dataset, [train_size, val_size])
+
+    if mixup:
+        print('[INFO] Create Mixup data augmentation...')
+        mixup_dataset = Mixup_Dataset('./data/cifar-10-batches-py/', train=True, transform=transform_aug)
+    else:
+        mixup_dataset = None
+
+    # trainset_aug = torch.utils.data.ConcatDataset([trainset, mixup_dataset])
+
+    trainset, valset = torch.utils.data.random_split(mixup_dataset, [train_size, val_size])
+
+    # print('Original trainset: {} samples.'.format(len(trainset)))
+    # print('Mixup augmentation: {} samples.'.format(len(mixup_dataset)))
 
     train_loader = torch.utils.data.DataLoader(trainset, batch_size=batch_size, shuffle=True)
     val_loader = torch.utils.data.DataLoader(valset, batch_size=batch_size, shuffle=True)

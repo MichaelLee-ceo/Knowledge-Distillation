@@ -35,8 +35,10 @@ for epoch in range(num_epochs):
         optimizer.zero_grad()
         output = model(x)
 
-        _, predicted = torch.max(output.data, 1)
+        predicted = torch.argmax(output.data, 1)
         train_total += label.size(0)
+
+        label = torch.argmax(label.data, 1)
         train_correct += (predicted == label).sum().item()
 
         loss = loss_fn(output, label)
@@ -56,8 +58,10 @@ for epoch in range(num_epochs):
             outputs = model(data)
             val_loss += loss_fn(outputs, target).item()
 
-            _, predicted = torch.max(outputs.data, 1)
+            predicted = torch.argmax(outputs.data, 1)
             val_total += target.size(0)
+
+            target = torch.argmax(target.data, 1)
             val_correct += (predicted == target).sum().item()
 
         val_total_loss.append(val_loss / len(val_loader))
