@@ -1,5 +1,6 @@
 import os
 import time
+import argparse
 import torch
 from utils import *
 from data_loader import DataLoader
@@ -7,6 +8,10 @@ from models.resnet import ResNet18
 from models.mobilenetv2 import MobileNetV2
 
 torch.manual_seed(0)
+
+parser = argparse.ArgumentParser(description='Implementation of training teacher network')
+parser.add_argument('--mixup', default=True, type=bool)
+args = parser.parse_args()
 
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 print(f'Using device: {device}, {torch.cuda.get_device_name(device)}')
@@ -38,11 +43,11 @@ batch_size = 128
 optimizer = torch.optim.SGD(model.parameters(), lr=lr, momentum=0.9, weight_decay=5e-4)
 scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=num_epochs)
 
-train_loader, val_loader, test_loader = DataLoader(batch_size=batch_size, train_val_split=0.8)
+train_loader, val_loader, test_loader = DataLoader(batch_size=batch_size, train_val_split=0.8, mixup=args.mixup)
 train_total_loss, train_total_acc, val_total_loss, val_total_acc = [], [], [], []
 
 best_acc = 0.0
-print('----- start training -----')
+print('\n----- start training -----')
 start = time.process_time()
 for epoch in range(num_epochs):
     train_loss = 0
@@ -53,8 +58,10 @@ for epoch in range(num_epochs):
         inputs, targets = inputs.to(device), targets.to(device)
         outputs = model(inputs)
 
-        _, predicted = torch.max(outputs.data, 1)
+        predicted = torch.argmax(outputs.data, 1)
         train_total += targets.size(0)
+
+        targets = torch.argmax(targets.data, 1)
         train_correct += (predicted == targets).sum().item()
 
         loss = loss_fn(outputs, targets)
@@ -67,16 +74,19 @@ for epoch in range(num_epochs):
 
     val_loss = 0
     val_total, val_correct = 0, 0
-    model.eval()
-    for inputs, targets in val_loader:
-        inputs, targets = inputs.to(device), targets.to(device)
-        outputs = model(inputs)
+    with torch.no_grad():
+        model.eval()
+        for inputs, targets in val_loader:
+            inputs, targets = inputs.to(device), targets.to(device)
+            outputs = model(inputs)
 
-        _, predicted = torch.max(outputs.data, 1)
-        val_total += targets.size(0)
-        val_correct += (predicted == targets).sum().item()
+            predicted = torch.argmax(outputs.data, 1)
+            val_total += targets.size(0)
 
-        val_loss += loss_fn(outputs, targets).item()
+            targets = torch.argmax(targets.data, 1)
+            val_correct += (predicted == targets).sum().item()
+
+            val_loss += loss_fn(outputs, targets).item()
     val_total_loss.append(val_loss / len(val_loader))
     val_total_acc.append(100 * val_correct / val_total)
 
@@ -103,6 +113,7 @@ print(f'----- Traing time: {time.process_time() - start} s -----')
 print('\nLoading best model...')
 checkpoint = torch.load('./checkpoint/teacher18_cifar10_cpkt')
 model.load_state_dict(checkpoint['model'])
+print('Best acc: {}%'.format(checkpoint['acc']))
 
 # test on testing data
 with torch.no_grad():
@@ -111,8 +122,10 @@ with torch.no_grad():
         data, labels = data.to(device), labels.to(device)
         outputs = model(data)
 
-        _, predicted = torch.max(outputs.data, 1)
+        predicted = torch.argmax(outputs.data, 1)
         total += labels.size(0)
+
+        labels = torch.argmax(labels.data, 1)
         correct += (predicted == labels).sum().item()
     print(f'[Test] Accuracy: {100 * correct / total}%')
 

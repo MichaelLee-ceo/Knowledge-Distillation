@@ -1,13 +1,14 @@
 import pickle
 import numpy as np
 import torch
-import torchvision
-from torch.utils.data import Dataset, DataLoader
+from PIL import Image
+from torch.utils.data import Dataset
 
 class Mixup_Dataset(Dataset):
-    def __init__(self, data_dir, train, transform):
+    def __init__(self, data_dir, train, mixup, transform):
         self.data_dir = data_dir
         self.train = train
+        self.mixup = mixup
         self.transform = transform
         self.data = []
         self.targets = []
@@ -36,16 +37,18 @@ class Mixup_Dataset(Dataset):
         label = torch.zeros(10)
         label[self.targets[idx]] = 1.
 
+        image = Image.fromarray(self.data[idx])
         if self.transform:
-            image = self.transform(self.data[idx])
+            image = self.transform(image)
 
-        if idx % 5 == 0:
+        if self.mixup:
             mixup_idx = np.random.randint(0, len(self.data) - 1)
             mixup_label = torch.zeros(10)
             mixup_label[self.targets[mixup_idx]] = 1.
 
+            mixup_image = Image.fromarray(self.data[mixup_idx])
             if self.transform:
-                mixup_image = self.transform(self.data[mixup_idx])
+                mixup_image = self.transform(mixup_image)
 
             # select a random number from the given beta distribution
             # and mixup the images accordingly

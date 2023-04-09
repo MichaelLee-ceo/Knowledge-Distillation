@@ -12,12 +12,13 @@ CIFAR10
 |  | 3-layer CNN (Student) | Resnet18 (Teacher) |
 |:-:|:-:|:-:|
 | Accuracy | 83.46% | 93.27% |
+| + Mixup  | 84.54% | 94.52% |
 
 FashionMNIST
 |  | 3-layer CNN (Student) | Resnet18 (Teacher) |
 |:-:|:-:|:-:|
 | Accuracy | 92.43% | 94.66% |
-
+| + Mixup  | - | - |
 
 ### Knowledge Distillation
 *T: temperature, R: alpha rate*
