@@ -9,10 +9,6 @@ from models.mobilenetv2 import MobileNetV2
 
 torch.manual_seed(0)
 
-parser = argparse.ArgumentParser(description='Implementation of training teacher network')
-parser.add_argument('--mixup', default=2, type=int)
-args = parser.parse_args()
-
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 print(f'Using device: {device}, {torch.cuda.get_device_name(device)}')
 print(torch.cuda.get_device_properties(device), '\n')
@@ -43,7 +39,7 @@ batch_size = 128
 optimizer = torch.optim.SGD(model.parameters(), lr=lr, momentum=0.9, weight_decay=5e-4)
 scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=num_epochs)
 
-train_loader, val_loader, test_loader = DataLoader(batch_size=batch_size, train_val_split=0.8, mixup=args.mixup)
+train_loader, val_loader, test_loader = DataLoader(batch_size=batch_size, train_val_split=0.8)
 train_total_loss, train_total_acc, val_total_loss, val_total_acc = [], [], [], []
 
 best_acc = 0.0
@@ -54,13 +50,7 @@ for epoch in range(num_epochs):
     train_total, train_correct = 0, 0
     model.train()
     for idx, (x, label) in enumerate(train_loader):
-        x, label = x.to(device), label.long().to(device)
-
-        # turn label to one_hot encoding
-        if idx % args.mixup == 0:
-            x, label = mixup(x, label)
-        else:
-            label = F.one_hot(label)
+        x, label = x.to(device), label.to(device)
 
         optimizer.zero_grad()
         outputs = model(x)
