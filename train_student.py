@@ -9,7 +9,7 @@ from utils import *
 torch.manual_seed(0)
 
 parser = argparse.ArgumentParser(description='Implementation of training student network')
-parser.add_argument('--mixup', default=True, type=bool)
+parser.add_argument('--mixup', default=30, type=int)
 args = parser.parse_args()
 
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
@@ -21,11 +21,10 @@ model = SimpleNet().to(device)
 num_epochs = 100
 lr = 0.001
 batch_size = 128
-# optimizer = torch.optim.SGD(model.parameters(), lr=lr, momentum=0.9, weight_decay=5e-4)
 optimizer = torch.optim.Adam(model.parameters(), lr=lr, weight_decay=5e-4)
-scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=num_epochs)
+# scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=num_epochs)
 
-train_loader, val_loader, test_loader = DataLoader(batch_size=batch_size, train_val_split=0.8, mixup=args.mixup)
+train_loader, val_loader, test_loader = DataLoader(batch_size=batch_size, train_val_split=0.8)
 train_total_loss, train_total_acc, val_total_loss, val_total_acc = [], [], [], []
 
 best_acc = 0.0
@@ -35,8 +34,15 @@ for epoch in range(num_epochs):
     model.train()
     train_total = 0
     train_loss, train_correct = 0, 0
-    for x, label in train_loader:
-        x, label = x.to(device), label.to(device)
+    for idx, (x, label) in enumerate(train_loader):
+        x, label = x.to(device), label.long().to(device)
+
+        # turn label to one_hot encoding
+        if idx % args.mixup == 0:
+            x, label = mixup(x, label)
+        else:
+            label = F.one_hot(label)
+
         optimizer.zero_grad()
         output = model(x)
 
@@ -64,15 +70,13 @@ for epoch in range(num_epochs):
 
             predicted = torch.argmax(outputs.data, 1)
             val_total += target.size(0)
-
-            target = torch.argmax(target.data, 1)
             val_correct += (predicted == target).sum().item()
 
             val_loss += loss_fn(outputs, target).item()
     val_total_loss.append(val_loss / len(val_loader))
     val_total_acc.append(100 * val_correct / val_total)
 
-    scheduler.step()
+    # scheduler.step()
     
     print('Epoch: {}/{}'.format(epoch+1, num_epochs))
     print('[Train] loss: {:.5f}, acc: {:.2f}%'.format(train_total_loss[-1], train_total_acc[-1]))
@@ -107,7 +111,6 @@ with torch.no_grad():
         predicted = torch.argmax(outputs.data, 1)
         total += labels.size(0)
 
-        labels = torch.argmax(labels.data, 1)
         correct += (predicted == labels).sum().item()
     print(f'\n[Test] Accuracy: {100 * correct / total}%')
 

@@ -10,7 +10,7 @@ from models.mobilenetv2 import MobileNetV2
 torch.manual_seed(0)
 
 parser = argparse.ArgumentParser(description='Implementation of training teacher network')
-parser.add_argument('--mixup', default=True, type=bool)
+parser.add_argument('--mixup', default=2, type=int)
 args = parser.parse_args()
 
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
@@ -53,18 +53,25 @@ for epoch in range(num_epochs):
     train_loss = 0
     train_total, train_correct = 0, 0
     model.train()
-    for inputs, targets in train_loader:
+    for idx, (x, label) in enumerate(train_loader):
+        x, label = x.to(device), label.long().to(device)
+
+        # turn label to one_hot encoding
+        if idx % args.mixup == 0:
+            x, label = mixup(x, label)
+        else:
+            label = F.one_hot(label)
+
         optimizer.zero_grad()
-        inputs, targets = inputs.to(device), targets.to(device)
-        outputs = model(inputs)
+        outputs = model(x)
 
         predicted = torch.argmax(outputs.data, 1)
-        train_total += targets.size(0)
+        train_total += label.size(0)
 
-        targets = torch.argmax(targets.data, 1)
-        train_correct += (predicted == targets).sum().item()
+        label = torch.argmax(label.data, 1)
+        train_correct += (predicted == label).sum().item()
 
-        loss = loss_fn(outputs, targets)
+        loss = loss_fn(outputs, label)
         loss.backward()
         optimizer.step()
 
@@ -82,8 +89,6 @@ for epoch in range(num_epochs):
 
             predicted = torch.argmax(outputs.data, 1)
             val_total += targets.size(0)
-
-            targets = torch.argmax(targets.data, 1)
             val_correct += (predicted == targets).sum().item()
 
             val_loss += loss_fn(outputs, targets).item()
@@ -125,7 +130,6 @@ with torch.no_grad():
         predicted = torch.argmax(outputs.data, 1)
         total += labels.size(0)
 
-        labels = torch.argmax(labels.data, 1)
         correct += (predicted == labels).sum().item()
     print(f'[Test] Accuracy: {100 * correct / total}%')
 

@@ -1,6 +1,8 @@
 import numpy as np
 import matplotlib.pyplot as plt
+import torch
 import torch.nn as nn
+import torch.nn.functional as F
 
 def imshow(img):
     img = img / 2 + 0.5
@@ -8,11 +10,17 @@ def imshow(img):
     plt.imshow(np.transpose(npimg, (1, 2, 0)))
     plt.show()
 
-def reset_wieghts(m):
-    for layer in m.children():
-        if hasattr(layer, 'reset_parameters'):
-            print(f'Reset trainable parameters of layer {layer}')
-            layer.reset_parameters()
+def mixup(img, label, alpha=0.2):
+    lamb = np.random.beta(alpha, alpha)
+    mixup_idx = torch.randperm(len(img))
+
+    mixup_img = img[mixup_idx]
+    mixup_label = label[mixup_idx]
+
+    labels = F.one_hot(label).long()
+    mixup_labels = F.one_hot(mixup_label).long()
+    
+    return lamb * img + (1 - lamb) * mixup_img, lamb * labels + (1 - lamb) * mixup_labels
 
 def loss_fn(outputs, labels):
     return nn.CrossEntropyLoss()(outputs, labels)
