@@ -9,11 +9,13 @@ from models.mobilenetv2 import MobileNetV2
 
 torch.manual_seed(0)
 
-device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-print(f'Using device: {device}, {torch.cuda.get_device_name(device)}')
-print(torch.cuda.get_device_properties(device), '\n')
+parser = argparse.ArgumentParser(description='Train teacher network')
+parser.add_argument('-m', '--mixup', default=True, type=bool)
+args = parser.parse_args()
 
-model = ResNet18()
+device = getDevice()
+model = ResNet18().to(device)
+
 '''
 # Freeze model parameters
 # for name, param in model.named_parameters():
@@ -31,7 +33,6 @@ model = ResNet18()
 #     nn.Linear(fc_inputs, 10),
 # )
 '''
-model = model.to(device)
 
 num_epochs = 100
 lr = 0.01
@@ -39,7 +40,7 @@ batch_size = 128
 optimizer = torch.optim.SGD(model.parameters(), lr=lr, momentum=0.9, weight_decay=5e-4)
 scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=num_epochs)
 
-train_loader, val_loader, test_loader = DataLoader(batch_size=batch_size, train_val_split=0.8, mixup=False)
+train_loader, val_loader, test_loader = DataLoader(batch_size=batch_size, train_val_split=0.8, mixup=args.mixup)
 train_total_loss, train_total_acc, val_total_loss, val_total_acc = [], [], [], []
 
 best_acc = 0.0
