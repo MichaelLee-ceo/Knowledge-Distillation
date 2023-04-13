@@ -39,7 +39,7 @@ batch_size = 128
 optimizer = torch.optim.SGD(model.parameters(), lr=lr, momentum=0.9, weight_decay=5e-4)
 scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=num_epochs)
 
-train_loader, val_loader, test_loader = DataLoader(batch_size=batch_size, train_val_split=0.8)
+train_loader, val_loader, test_loader = DataLoader(batch_size=batch_size, train_val_split=0.8, mixup=False)
 train_total_loss, train_total_acc, val_total_loss, val_total_acc = [], [], [], []
 
 best_acc = 0.0

@@ -6,3 +6,6 @@ data/
 
 # ignore model weights
 checkpoint/
+
+# training history
+runs/
