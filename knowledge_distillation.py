@@ -11,13 +11,12 @@ from models.resnet import ResNet18
 torch.manual_seed(0)
 
 parser = argparse.ArgumentParser(description='Implementation of knowledge distillation')
-parser.add_argument('--temperature', default=4, type=int)
-parser.add_argument('--rate', default=0.9, type=float)
+parser.add_argument('-m', '--mixup', default=True, type=bool)
+parser.add_argument('-t', '--temperature', default=4, type=int)
+parser.add_argument('-r', '--rate', default=0.9, type=float)
 args = parser.parse_args()
 
-device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-print(f'Using device: {device}, {torch.cuda.get_device_name(device)}')
-print(torch.cuda.get_device_properties(device), '\n')
+device = getDevice()
 
 writer = SummaryWriter('./runs/CIFAR10/T{}_R{}'.format(args.temperature, args.rate))
 
@@ -27,17 +26,24 @@ teacher = teacher.to(device)
 
 student = SimpleNet().to(device)
 
-num_epochs = 100
+num_epochs = 1000
 lr = 0.01
 batch_size = 128
 # optimizer = torch.optim.Adam(student.parameters(), lr=lr, weight_decay=5e-4)
 optimizer = torch.optim.SGD(student.parameters(), lr=lr, momentum=0.9, weight_decay=5e-4)
 scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=num_epochs)
 
-train_loader, val_loader, test_loader = DataLoader(batch_size=batch_size, train_val_split=0.8)
+train_loader, val_loader, test_loader = DataLoader(batch_size=batch_size, train_val_split=0.8, mixup=args.mixup)
 train_total_loss, train_total_acc, val_total_loss, val_total_acc = [], [], [], []
 
 best_acc = 0.0
+
+state = {
+    'model': [],
+    'acc': 0,
+    'epoch': 0,
+}
+
 print('----- Start Training ----- T: {}, R: {}'.format(args.temperature, args.rate))
 start = time.process_time()
 for epoch in range(num_epochs):
@@ -54,6 +60,8 @@ for epoch in range(num_epochs):
         
         _, predicted = torch.max(output.data, 1)
         train_total += label.size(0)
+
+        label = torch.argmax(label.data, 1)
         train_correct += (predicted == label).sum().item()
         
         loss = loss_fn_kd(output, label, soft_label, args.temperature, args.rate)
@@ -93,22 +101,17 @@ for epoch in range(num_epochs):
 
     # save checkpoint
     if val_total_acc[-1] > best_acc:
-        state = {
-            'model': student.state_dict(),
-            'acc': val_total_acc[-1],
-            'epoch': epoch,
-        }
-        if not os.path.isdir('checkpoint'):
-            os.mkdir('checkpoint')
-        torch.save(state, './checkpoint/student_kd_cpkt')
         best_acc = val_total_acc[-1]
+        state['model'] = student.state_dict()
+        state['acc'] = val_total_acc[-1]
+        state['epoch'] = epoch
         print('- New checkpoint -')
 
 print(f'----- Traing time: {time.process_time() - start} s -----')
 
 print('\nLoading best model...')
-checkpoint = torch.load('./checkpoint/student_kd_cpkt')
-student.load_state_dict(checkpoint['model'])
+student.load_state_dict(state['model'])
+print('Best acc: {}%'.format(state['acc']))
 
 with torch.no_grad():
     total, correct = 0, 0
@@ -118,7 +121,8 @@ with torch.no_grad():
 
         _, predicted = torch.max(outputs.data, 1)
         total += labels.size(0)
+
         correct += (predicted == labels).sum().item()
     print(f'\n[Test] Accuracy: {100 * correct / total}%')
 
-show_train_result(num_epochs, train_total_loss, train_total_acc, val_total_loss, val_total_acc, 'student_kd')
+show_train_result(num_epochs, train_total_loss, train_total_acc, val_total_loss, val_total_acc, 'student_kd_T{}_R{}'.format(args.temperature, args.rate))

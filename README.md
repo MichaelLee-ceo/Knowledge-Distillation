@@ -12,7 +12,7 @@ CIFAR10
 |  | 3-layer CNN (Student) | Resnet18 (Teacher) |
 |:-:|:-:|:-:|
 | Accuracy | 83.46% | 93.27% |
-| + Mixup  | 84.54% | 94.52% |
+| + Mixup  | 84.86% | 94.46% |
 
 FashionMNIST
 |  | 3-layer CNN (Student) | Resnet18 (Teacher) |
@@ -27,7 +27,7 @@ CIFAR10
 |  | T=4, R=0.9 | T=4, R=0.95 | T=4, R=1.0 | T=10, R=0.9 |
 |--|:-:|:-:|:-:|:-:|
 | Accuracy | 84.47% | 84.86% | 84.14% | -      |
-| + Mixup  | -      | -      | -      | -      |
+| + Mixup  | 85.42% | 84.86% | 85.12% | -      |
 
 FashionMNIST
 |  | T=4, R=0.9 | T=4, R=0.95 | T=4, R=1.0 | T=10, R=0.9 |

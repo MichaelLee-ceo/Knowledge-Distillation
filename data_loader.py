@@ -28,7 +28,7 @@ def DataLoader(batch_size=128, train_val_split=0.8, mixup=True):
     print('Original trainset: {}'.format(len(trainset)))
 
     if mixup:
-        mixup_dataset = MyDataset(trainset, mixup=True)
+        mixup_dataset = MyDataset(trainset, transform=data_transform['augment'], mixup=True)
         new_trainset = torch.utils.data.ConcatDataset([new_trainset, mixup_dataset])
         print('[+] Create Mixup data augmentation: {}'.format(len(mixup_dataset)))
 

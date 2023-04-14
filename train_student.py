@@ -15,7 +15,7 @@ args = parser.parse_args()
 device = getDevice()
 model = SimpleNet().to(device)
 
-num_epochs = 100
+num_epochs = 1000
 lr = 0.001
 batch_size = 128
 optimizer = torch.optim.Adam(model.parameters(), lr=lr, weight_decay=5e-4)
