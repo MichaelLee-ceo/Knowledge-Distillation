@@ -18,15 +18,15 @@ args = parser.parse_args()
 
 device = getDevice()
 
-writer = SummaryWriter('./runs/CIFAR10/T{}_R{}'.format(args.temperature, args.rate))
+writer = SummaryWriter('./runs/FMNIST/T{}_R{}'.format(args.temperature, args.rate))
 
 teacher = ResNet18()
-teacher.load_state_dict(torch.load('./checkpoint/teacher18_cifar10_cpkt')['model'])
+teacher.load_state_dict(torch.load('./checkpoint/teacher18_FMNIST_cpkt')['model'])
 teacher = teacher.to(device)
 
 student = SimpleNet().to(device)
 
-num_epochs = 1000
+num_epochs = 100
 lr = 0.01
 batch_size = 128
 # optimizer = torch.optim.Adam(student.parameters(), lr=lr, weight_decay=5e-4)

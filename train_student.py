@@ -9,7 +9,7 @@ from utils import *
 torch.manual_seed(0)
 
 parser = argparse.ArgumentParser(description='Train student network')
-parser.add_argument('-m', '--mixup', default=True, type=bool)
+parser.add_argument('-m', '--mixup', default=False, type=bool)
 args = parser.parse_args()
 
 device = getDevice()

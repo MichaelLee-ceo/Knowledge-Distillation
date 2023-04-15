@@ -10,7 +10,7 @@ from models.mobilenetv2 import MobileNetV2
 torch.manual_seed(0)
 
 parser = argparse.ArgumentParser(description='Train teacher network')
-parser.add_argument('-m', '--mixup', default=True, type=bool)
+parser.add_argument('-m', '--mixup', default=False, type=bool)
 args = parser.parse_args()
 
 device = getDevice()
@@ -101,13 +101,13 @@ for epoch in range(num_epochs):
         }
         if not os.path.isdir('checkpoint'):
             os.mkdir('checkpoint')
-        torch.save(state, './checkpoint/teacher18_cifar10_cpkt')
+        torch.save(state, './checkpoint/teacher18_FMNIST_cpkt')
         best_acc = val_total_acc[-1]
         print('- New checkpoint -')
 print(f'----- Traing time: {time.process_time() - start} s -----')
 
 print('\nLoading best model...')
-checkpoint = torch.load('./checkpoint/teacher18_cifar10_cpkt')
+checkpoint = torch.load('./checkpoint/teacher18_FMNIST_cpkt')
 model.load_state_dict(checkpoint['model'])
 print('Best acc: {}%'.format(checkpoint['acc']))
 
