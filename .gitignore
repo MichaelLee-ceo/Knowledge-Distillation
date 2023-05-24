@@ -9,3 +9,4 @@ checkpoint/
 
 # training history
 runs/
+wandb/
