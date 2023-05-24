@@ -4,6 +4,46 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
+def train(model, data_loader, optimizer, device):
+    train_total, train_correct = 0, 0
+    model.train()
+    for idx, (x, label) in enumerate(data_loader):
+        x, label = x.to(device), label.to(device)
+
+        optimizer.zero_grad()
+        output = model(x)
+
+        predicted = torch.argmax(output.data, 1)
+        train_total += label.size(0)
+        train_correct += (predicted == label).sum().item()
+
+        loss = loss_fn(output, label)
+        loss.backward()
+        optimizer.step()
+    return train_correct / train_total
+
+def evaluate(model, data_loader, device):
+    val_total, val_correct = 0, 0
+    with torch.no_grad():
+        model.eval()
+        for data, target in data_loader:
+            data, target = data.to(device), target.to(device)
+            outputs = model(data)
+
+            predicted = torch.argmax(outputs.data, 1)
+            val_total += target.size(0)
+            val_correct += (predicted == target).sum().item()
+    return val_correct / val_total
+
+def getDataset(dataset, label):
+    indices = torch.nonzero(torch.Tensor(dataset.targets) == label).squeeze()
+    trainset = torch.utils.data.Subset(dataset, indices)
+
+    train_size = int(len(trainset) * 0.95)
+    val_size = len(trainset) - train_size
+
+    train_set, val_set = torch.utils.data.random_split(trainset, [train_size, val_size])
+    return train_set, val_set
 
 def getDevice():
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
